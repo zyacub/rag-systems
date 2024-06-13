@@ -1,10 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-
-
-
-
 from haystack.components.writers import DocumentWriter
 from haystack.components.converters import MarkdownToDocument, PyPDFToDocument, TextFileToDocument
 from haystack.components.preprocessors import DocumentSplitter, DocumentCleaner
@@ -40,8 +36,12 @@ pdf_converter = PyPDFToDocument()
 document_joiner = DocumentJoiner()
 
 #Preprocessing
-document_cleaner = DocumentCleaner()
-document_splitter = DocumentSplitter(split_by="word", split_length=150, split_overlap=25)
+document_cleaner = DocumentCleaner(
+    remove_empty_lines=True,
+    remove_extra_whitespaces=True,
+    remove_repeated_substrings=False
+)
+document_splitter = DocumentSplitter(split_by="word", split_length=50, split_overlap=10)
 
 #Embedder and writer
 model="sentence-transformers/all-MiniLM-L6-v2"
@@ -73,11 +73,11 @@ preprocessing_pipeline.connect("document_splitter", "document_embedder")
 preprocessing_pipeline.connect("document_embedder", "document_writer")
 
 #Running pipeline
-preprocessing_pipeline.run({"file_type_router": {"sources": list(Path("docs").glob("**/*"))}})
+preprocessing_pipeline.run({"file_type_router": {"sources": list(Path("docs\medical_histories\\bad").glob("**/*"))}})
 
 #Building retriever and llm pipeline
 template = """
-Answer the cybersecurity questions based on the given context. Cite direct quotes from the context in order to support your answer.
+Answer the health questions based on the patients past medical history.
 
 Context:
 {% for document in documents %}
@@ -90,7 +90,7 @@ Answer:
 
 pipe = Pipeline()
 pipe.add_component("embedder", SentenceTransformersTextEmbedder(model=model))
-pipe.add_component("retriever", InMemoryEmbeddingRetriever(document_store=document_store))
+pipe.add_component("retriever", InMemoryEmbeddingRetriever(document_store=document_store, top_k=3))
 pipe.add_component("prompt_builder", PromptBuilder(template=template))
 pipe.add_component("llm", OpenAIGenerator(model="gpt-4"))
 
@@ -106,12 +106,13 @@ def answer_question(query):
         {
             "embedder": {"text": question},
             "prompt_builder": {"question": question}
+            
         }
     )
-    return result['llm']['replies'][0]
+    return result
 
 
-#Fast api routing for our backend
+#Fast api routing    
 app = FastAPI()
 
 origins = ["*"]
