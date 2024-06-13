@@ -73,7 +73,7 @@ preprocessing_pipeline.connect("document_splitter", "document_embedder")
 preprocessing_pipeline.connect("document_embedder", "document_writer")
 
 #Running pipeline
-preprocessing_pipeline.run({"file_type_router": {"sources": list(Path("docs").glob("**/*"))}})
+preprocessing_pipeline.run({"file_type_router": {"sources": list(Path("docs\cybercontrols").glob("**/*"))}})
 
 #Building retriever and llm pipeline
 template = """
